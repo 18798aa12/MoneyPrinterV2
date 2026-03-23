@@ -75,29 +75,26 @@ class YouTube:
         self._language: str = language
 
         self.images = []
+        self.browser = None
 
-        # Initialize the Firefox profile
-        self.options: Options = Options()
+        # Only initialize browser if using Selenium upload
+        if get_youtube_upload_method() != "api":
+            self.options: Options = Options()
+            if get_headless():
+                self.options.add_argument("--headless")
 
-        # Set headless state of browser
-        if get_headless():
-            self.options.add_argument("--headless")
+            if not os.path.isdir(self._fp_profile_path):
+                raise ValueError(
+                    f"Firefox profile path does not exist or is not a directory: {self._fp_profile_path}"
+                )
 
-        if not os.path.isdir(self._fp_profile_path):
-            raise ValueError(
-                f"Firefox profile path does not exist or is not a directory: {self._fp_profile_path}"
+            self.options.add_argument("-profile")
+            self.options.add_argument(self._fp_profile_path)
+
+            self.service: Service = Service(GeckoDriverManager().install())
+            self.browser: webdriver.Firefox = webdriver.Firefox(
+                service=self.service, options=self.options
             )
-
-        self.options.add_argument("-profile")
-        self.options.add_argument(self._fp_profile_path)
-
-        # Set the service
-        self.service: Service = Service(GeckoDriverManager().install())
-
-        # Initialize the browser
-        self.browser: webdriver.Firefox = webdriver.Firefox(
-            service=self.service, options=self.options
-        )
 
     @property
     def niche(self) -> str:
@@ -138,8 +135,12 @@ class YouTube:
         Returns:
             topic (str): The generated topic.
         """
-        completion = self.generate_response(
-            f"Please generate a specific video idea that takes about the following topic: {self.niche}. Make it exactly one sentence. Only return the topic, nothing else."
+        from modules.loader import get_topic
+        completion = get_topic(
+            self.niche, self.language,
+            fallback_fn=lambda: self.generate_response(
+                f"Please generate a specific video idea that takes about the following topic: {self.niche}. Make it exactly one sentence. Only return the topic, nothing else."
+            )
         )
 
         if not completion:
@@ -157,29 +158,12 @@ class YouTube:
             script (str): The script of the video.
         """
         sentence_length = get_script_sentence_length()
-        prompt = f"""
-        Generate a script for a video in {sentence_length} sentences, depending on the subject of the video.
 
-        The script is to be returned as a string with the specified number of paragraphs.
-
-        Here is an example of a string:
-        "This is an example string."
-
-        Do not under any circumstance reference this prompt in your response.
-
-        Get straight to the point, don't start with unnecessary things like, "welcome to this video".
-
-        Obviously, the script should be related to the subject of the video.
-        
-        YOU MUST NOT EXCEED THE {sentence_length} SENTENCES LIMIT. MAKE SURE THE {sentence_length} SENTENCES ARE SHORT.
-        YOU MUST NOT INCLUDE ANY TYPE OF MARKDOWN OR FORMATTING IN THE SCRIPT, NEVER USE A TITLE.
-        YOU MUST WRITE THE SCRIPT IN THE LANGUAGE SPECIFIED IN [LANGUAGE].
-        ONLY RETURN THE RAW CONTENT OF THE SCRIPT. DO NOT INCLUDE "VOICEOVER", "NARRATOR" OR SIMILAR INDICATORS OF WHAT SHOULD BE SPOKEN AT THE BEGINNING OF EACH PARAGRAPH OR LINE. YOU MUST NOT MENTION THE PROMPT, OR ANYTHING ABOUT THE SCRIPT ITSELF. ALSO, NEVER TALK ABOUT THE AMOUNT OF PARAGRAPHS OR LINES. JUST WRITE THE SCRIPT
-        
-        Subject: {self.subject}
-        Language: {self.language}
-        """
-        completion = self.generate_response(prompt)
+        from modules.loader import get_script
+        completion = get_script(
+            self.subject, self.language, sentence_length,
+            fallback_fn=lambda: self._generate_script_original(sentence_length)
+        )
 
         # Apply regex to remove *
         completion = re.sub(r"\*", "", completion)
@@ -194,8 +178,33 @@ class YouTube:
             return self.generate_script()
 
         self.script = completion
-
         return completion
+
+    def _generate_script_original(self, sentence_length: int) -> str:
+        """Original script generation logic as fallback."""
+        prompt = f"""
+        Generate a script for a video in {sentence_length} sentences, depending on the subject of the video.
+
+        The script is to be returned as a string with the specified number of paragraphs.
+
+        Here is an example of a string:
+        "This is an example string."
+
+        Do not under any circumstance reference this prompt in your response.
+
+        Get straight to the point, don't start with unnecessary things like, "welcome to this video".
+
+        Obviously, the script should be related to the subject of the video.
+
+        YOU MUST NOT EXCEED THE {sentence_length} SENTENCES LIMIT. MAKE SURE THE {sentence_length} SENTENCES ARE SHORT.
+        YOU MUST NOT INCLUDE ANY TYPE OF MARKDOWN OR FORMATTING IN THE SCRIPT, NEVER USE A TITLE.
+        YOU MUST WRITE THE SCRIPT IN THE LANGUAGE SPECIFIED IN [LANGUAGE].
+        ONLY RETURN THE RAW CONTENT OF THE SCRIPT. DO NOT INCLUDE "VOICEOVER", "NARRATOR" OR SIMILAR INDICATORS OF WHAT SHOULD BE SPOKEN AT THE BEGINNING OF EACH PARAGRAPH OR LINE. YOU MUST NOT MENTION THE PROMPT, OR ANYTHING ABOUT THE SCRIPT ITSELF. ALSO, NEVER TALK ABOUT THE AMOUNT OF PARAGRAPHS OR LINES. JUST WRITE THE SCRIPT
+
+        Subject: {self.subject}
+        Language: {self.language}
+        """
+        return self.generate_response(prompt)
 
     def generate_metadata(self) -> dict:
         """
@@ -204,22 +213,25 @@ class YouTube:
         Returns:
             metadata (dict): The generated metadata.
         """
+        from modules.loader import get_metadata
+        result = get_metadata(
+            self.subject, self.script, self.language,
+            fallback_fn=lambda: self._generate_metadata_original()
+        )
+        self.metadata = result
+        return self.metadata
+
+    def _generate_metadata_original(self) -> dict:
+        """Original metadata generation as fallback."""
         title = self.generate_response(
             f"Please generate a YouTube Video Title for the following subject, including hashtags: {self.subject}. Only return the title, nothing else. Limit the title under 100 characters."
         )
-
         if len(title) > 100:
-            if get_verbose():
-                warning("Generated Title is too long. Retrying...")
-            return self.generate_metadata()
-
+            title = title[:97] + "..."
         description = self.generate_response(
             f"Please generate a YouTube Video Description for the following script: {self.script}. Only return the description, nothing else."
         )
-
-        self.metadata = {"title": title, "description": description}
-
-        return self.metadata
+        return {"title": title, "description": description}
 
     def generate_prompts(self) -> List[str]:
         """
@@ -228,6 +240,16 @@ class YouTube:
         Returns:
             image_prompts (List[str]): Generated List of image prompts.
         """
+        from modules.loader import get_image_prompts
+        pro_prompts = get_image_prompts(
+            self.script, self.subject,
+            fallback_fn=None
+        )
+        if pro_prompts:
+            self.image_prompts = pro_prompts
+            success(f"Generated {len(pro_prompts)} Image Prompts (Pro).")
+            return pro_prompts
+
         n_prompts = len(self.script) / 3
 
         prompt = f"""
@@ -328,9 +350,11 @@ class YouTube:
         """
         print(f"Generating Image using Nano Banana 2 API: {prompt}")
 
-        api_key = get_nanobanana2_api_key()
-        if not api_key:
-            error("nanobanana2_api_key is not configured.")
+        from llm_provider import _get_next_gemini_key, _mark_key_exhausted, _get_gemini_keys, _rate_limit
+
+        keys = _get_gemini_keys()
+        if not keys:
+            error("No Gemini API keys configured.")
             return None
 
         base_url = get_nanobanana2_api_base_url().rstrip("/")
@@ -347,12 +371,34 @@ class YouTube:
         }
 
         try:
-            response = requests.post(
-                endpoint,
-                headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
-                json=payload,
-                timeout=300,
-            )
+            import time
+            total_attempts = 3 * max(len(keys), 1)
+            for _attempt in range(total_attempts):
+                api_key = _get_next_gemini_key()
+                _rate_limit()
+                response = requests.post(
+                    endpoint,
+                    headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
+                    json=payload,
+                    timeout=300,
+                )
+                if response.status_code == 429:
+                    error_body = {}
+                    try:
+                        error_body = response.json().get("error", {})
+                    except Exception:
+                        pass
+                    msg = error_body.get("message", "")
+                    if "spending" in msg.lower() or "quota" in msg.lower() or "exhausted" in msg.lower():
+                        _mark_key_exhausted(api_key)
+                        continue
+                    wait = 30 * (_attempt + 1)
+                    if wait > 120:
+                        wait = 120
+                    print(f"[Image rate limited] Waiting {wait}s...")
+                    time.sleep(wait)
+                    continue
+                break
             response.raise_for_status()
             body = response.json()
 
@@ -377,17 +423,46 @@ class YouTube:
                 warning(f"Failed to generate image with Nano Banana 2 API: {str(e)}")
             return None
 
-    def generate_image(self, prompt: str) -> str:
+    def _sanitize_image_prompt(self, original_prompt: str) -> str:
+        """Uses LLM to rewrite a filtered image prompt into a safe version."""
+        from llm_provider import generate_text
+        rewrite_prompt = (
+            f"The following image generation prompt was blocked by a safety filter:\n"
+            f'"{original_prompt}"\n\n'
+            f"Rewrite it to convey the same visual concept but remove anything that could be "
+            f"considered violent, gory, disturbing, sexual, or unsafe. "
+            f"Keep it artistic and family-friendly. "
+            f"Do NOT include any explanation, just output the rewritten prompt."
+        )
+        return generate_text(rewrite_prompt)
+
+    def generate_image(self, prompt: str, max_retries: int = 3) -> str:
         """
-        Generates an AI Image based on the given prompt using Nano Banana 2.
+        Generates an AI Image with automatic retry and prompt sanitization.
+
+        If the image is blocked by safety filters, rewrites the prompt
+        and retries up to max_retries times.
 
         Args:
             prompt (str): Reference for image generation
+            max_retries (int): Maximum retry attempts with sanitized prompts
 
         Returns:
             path (str): The path to the generated image.
         """
-        return self.generate_image_nanobanana2(prompt)
+        current_prompt = prompt
+        for attempt in range(max_retries):
+            result = self.generate_image_nanobanana2(current_prompt)
+            if result is not None:
+                return result
+
+            if attempt < max_retries - 1:
+                warning(f"Image filtered (attempt {attempt + 1}/{max_retries}), rewriting prompt...")
+                current_prompt = self._sanitize_image_prompt(current_prompt)
+                info(f"Retrying with: {current_prompt}")
+
+        warning(f"Failed to generate image after {max_retries} attempts, skipping.")
+        return None
 
     def generate_script_to_speech(self, tts_instance: TTS) -> str:
         """
@@ -702,11 +777,84 @@ class YouTube:
 
     def upload_video(self) -> bool:
         """
-        Uploads the video to YouTube.
-
-        Returns:
-            success (bool): Whether the upload was successful or not.
+        Uploads the video to YouTube using API or Selenium.
         """
+        if get_youtube_upload_method() == "api":
+            return self._upload_via_api()
+        return self._upload_via_selenium()
+
+    def _upload_via_api(self) -> bool:
+        """Upload video using YouTube Data API v3."""
+        from google.oauth2.credentials import Credentials
+        from googleapiclient.discovery import build
+        from googleapiclient.http import MediaFileUpload
+
+        try:
+            credentials = Credentials(
+                token=None,
+                refresh_token=get_youtube_refresh_token(),
+                token_uri="https://oauth2.googleapis.com/token",
+                client_id=get_youtube_client_id(),
+                client_secret=get_youtube_client_secret(),
+            )
+
+            youtube = build("youtube", "v3", credentials=credentials)
+
+            body = {
+                "snippet": {
+                    "title": self.metadata["title"][:100],
+                    "description": self.metadata["description"],
+                    "categoryId": "22",  # People & Blogs
+                },
+                "status": {
+                    "privacyStatus": "public",
+                    "selfDeclaredMadeForKids": get_is_for_kids(),
+                },
+            }
+
+            media = MediaFileUpload(
+                self.video_path,
+                mimetype="video/mp4",
+                resumable=True,
+                chunksize=1024 * 1024,
+            )
+
+            request = youtube.videos().insert(
+                part="snippet,status",
+                body=body,
+                media_body=media,
+            )
+
+            if get_verbose():
+                info("\t=> Uploading via YouTube API...")
+
+            response = None
+            while response is None:
+                status, response = request.next_chunk()
+                if status:
+                    info(f"\t=> Upload progress: {int(status.progress() * 100)}%")
+
+            video_id = response["id"]
+            url = f"https://youtube.com/shorts/{video_id}"
+            self.uploaded_video_url = url
+
+            if get_verbose():
+                success(f" => Uploaded Video: {url}")
+
+            self.add_video({
+                "title": self.metadata["title"],
+                "description": self.metadata["description"],
+                "url": url,
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            })
+
+            return True
+        except Exception as e:
+            error(f"YouTube API upload failed: {e}")
+            return False
+
+    def _upload_via_selenium(self) -> bool:
+        """Upload video using Selenium browser automation (legacy)."""
         try:
             self.get_channel_id()
 

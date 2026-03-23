@@ -89,6 +89,18 @@ def get_ollama_model() -> str:
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
         return json.load(file).get("ollama_model", "")
 
+def get_openai_api_key() -> str:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("openai_api_key", "")
+
+def get_openai_base_url() -> str:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("openai_base_url", "https://api.openai.com/v1")
+
+def get_openai_model() -> str:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("openai_model", "")
+
 def get_twitter_language() -> str:
     """
     Gets the Twitter language from the config file.
@@ -172,6 +184,22 @@ def get_is_for_kids() -> bool:
     """
     with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
         return json.load(file)["is_for_kids"]
+
+def get_youtube_upload_method() -> str:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("youtube_upload_method", "selenium")
+
+def get_youtube_client_id() -> str:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("youtube_client_id", "")
+
+def get_youtube_client_secret() -> str:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("youtube_client_secret", "")
+
+def get_youtube_refresh_token() -> str:
+    with open(os.path.join(ROOT_DIR, "config.json"), "r") as file:
+        return json.load(file).get("youtube_refresh_token", "")
 
 def get_google_maps_scraper_zip_url() -> str:
     """

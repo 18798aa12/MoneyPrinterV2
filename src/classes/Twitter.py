@@ -112,6 +112,11 @@ class Twitter:
                 "Could not find tweet text box. Ensure you are logged into X in this Firefox profile."
             )
 
+        # Dismiss any autocomplete/hashtag popups that may obscure the Post button
+        from selenium.webdriver.common.keys import Keys
+        time.sleep(1)
+        text_box.send_keys(Keys.ESCAPE)
+        time.sleep(1)
 
         post_button = None
         post_button_selectors = [
@@ -123,7 +128,8 @@ class Twitter:
         for selector in post_button_selectors:
             try:
                 post_button = self.wait.until(EC.element_to_be_clickable(selector))
-                post_button.click()
+                # Use JavaScript click to bypass any overlay issues
+                bot.execute_script("arguments[0].click();", post_button)
                 break
             except Exception:
                 continue
@@ -202,9 +208,13 @@ class Twitter:
         Returns:
             post (str): The post
         """
-        completion = generate_text(
-            f"Generate a Twitter post about: {self.topic} in {get_twitter_language()}. "
-            "The Limit is 2 sentences. Choose a specific sub-topic of the provided topic."
+        from modules.loader import get_tweet
+        completion = get_tweet(
+            self.topic, get_twitter_language(),
+            fallback_fn=lambda: generate_text(
+                f"Generate a Twitter post about: {self.topic} in {get_twitter_language()}. "
+                "The Limit is 2 sentences. Choose a specific sub-topic of the provided topic."
+            )
         )
 
         if get_verbose():
@@ -219,7 +229,7 @@ class Twitter:
 
         if get_verbose():
             info(f"Length of post: {len(completion)}")
-        if len(completion) >= 260:
-            return completion[:257].rsplit(" ", 1)[0] + "..."
+        if len(completion) >= 275:
+            return completion[:272].rsplit(" ", 1)[0] + "..."
 
         return completion

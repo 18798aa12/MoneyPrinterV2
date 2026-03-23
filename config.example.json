@@ -1,12 +1,16 @@
 {
   "verbose": true,
   "firefox_profile": "",
-  "headless": false,
+  "headless": true,
   "ollama_base_url": "http://127.0.0.1:11434",
-  "ollama_model": "",
+  "ollama_model": "gemini-2.5-flash",
+  "openai_api_key": "",
+  "openai_base_url": "https://api.openai.com/v1",
+  "openai_model": "",
   "twitter_language": "English",
   "nanobanana2_api_base_url": "https://generativelanguage.googleapis.com/v1beta",
   "nanobanana2_api_key": "",
+  "gemini_api_keys": [],
   "nanobanana2_model": "gemini-3.1-flash-image-preview",
   "nanobanana2_aspect_ratio": "9:16",
   "threads": 2,
@@ -30,6 +34,17 @@
   "assembly_ai_api_key": "",
   "tts_voice": "Jasper",
   "font": "bold_font.ttf",
-  "imagemagick_path": "Path to magick.exe or on linux/macOS just /usr/bin/convert",
-  "script_sentence_length": 4
+  "imagemagick_path": "/usr/bin/convert",
+  "script_sentence_length": 7,
+
+  "youtube_upload_method": "api",
+  "youtube_client_id": "",
+  "youtube_client_secret": "",
+  "youtube_refresh_token": "",
+
+  "modules_topic_engine": true,
+  "modules_script_enhancer": true,
+  "modules_seo_optimizer": true,
+  "modules_image_prompts_pro": true,
+  "modules_tweet_variety": true
 }

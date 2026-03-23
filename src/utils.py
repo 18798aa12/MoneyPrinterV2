@@ -120,8 +120,8 @@ def fetch_songs() -> None:
                 warning(f"Failed to fetch songs from {download_url}: {err}")
 
         if not downloaded:
-            raise RuntimeError(
-                "Could not download a valid songs archive from any configured URL"
+            warning(
+                "Could not download songs archive. Videos will be generated without background music."
             )
 
         # Remove the zip file

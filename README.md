@@ -1,98 +1,224 @@
-# MoneyPrinter V2
- 
-> ♥︎ **Sponsor**: The Best AI Chat App: [shiori.ai](https://www.shiori.ai). Use code **MPV2** for 20% off.
+# MoneyPrinter V2 — Enhanced Fork
 
----
+> Forked from [FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2)
 
-> 𝕏 Also, follow me on X: [@DevBySami](https://x.com/DevBySami).
+Automated YouTube Shorts + Twitter/X content generation and publishing, powered by **Gemini API** (free tier).
 
-[![madewithlove](https://img.shields.io/badge/made_with-%E2%9D%A4-red?style=for-the-badge&labelColor=orange)](https://github.com/FujiwaraChoki/MoneyPrinterV2)
+## What's New in This Fork
 
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-brightgreen?logo=buymeacoffee)](https://www.buymeacoffee.com/fujicodes)
-[![GitHub license](https://img.shields.io/github/license/FujiwaraChoki/MoneyPrinterV2?style=for-the-badge)](https://github.com/FujiwaraChoki/MoneyPrinterV2/blob/main/LICENSE)
-[![GitHub issues](https://img.shields.io/github/issues/FujiwaraChoki/MoneyPrinterV2?style=for-the-badge)](https://github.com/FujiwaraChoki/MoneyPrinterV2/issues)
-[![GitHub stars](https://img.shields.io/github/stars/FujiwaraChoki/MoneyPrinterV2?style=for-the-badge)](https://github.com/FujiwaraChoki/MoneyPrinterV2/stargazers)
-[![Discord](https://img.shields.io/discord/1134848537704804432?style=for-the-badge)](https://dsc.gg/fuji-community)
+### Gemini API (No Local GPU Needed)
+- Replaced Ollama (local LLM) with **Google Gemini API** for text and image generation
+- **Multi-key rotation**: configure multiple API keys, auto-rotate when one hits quota
+- Rate limiting (4.5s interval) + exponential backoff on 429 errors
+- Also supports **OpenAI-compatible APIs** (GPT, Qwen, DeepSeek, Claude via proxy)
 
-An Application that automates the process of making money online.
-MPV2 (MoneyPrinter Version 2) is, as the name suggests, the second version of the MoneyPrinter project. It is a complete rewrite of the original project, with a focus on a wider range of features and a more modular architecture.
+### YouTube Data API Upload
+- Replaced Selenium browser upload with **YouTube Data API v3**
+- No more "suspicious activity" blocks from Google when uploading from VPS/servers
+- OAuth2 refresh token — authorize once, works forever
+- Upload progress tracking
 
-> **Note:** MPV2 needs Python 3.12 to function effectively.
-> Watch the YouTube video [here](https://youtu.be/wAZ_ZSuIqfk)
+### 5 Plug-and-Play Modules
+All modules can be toggled on/off in `config.json`:
 
-## Features
+| Module | What it does |
+|--------|-------------|
+| `topic_engine` | Deduplicates topics, generates 5 candidates with viral hooks |
+| `script_enhancer` | Hook → Content → CTA structure, followed by polish pass |
+| `seo_optimizer` | Generates viral titles with emoji + SEO descriptions |
+| `image_prompts_pro` | 2-3 cinematic image prompts per sentence, 6 visual styles |
+| `tweet_variety` | 6 tweet styles (shocking fact, hot take, question, mini list, story, myth buster) |
 
-- [x] Twitter Bot (with CRON Jobs => `scheduler`)
-- [x] YouTube Shorts Automater (with CRON Jobs => `scheduler`)
-- [x] Affiliate Marketing (Amazon + Twitter)
-- [x] Find local businesses & cold outreach
+### Other Improvements
+- **Twitter fix**: Dismiss hashtag autocomplete popup + JavaScript click (fixes silent post failures)
+- **Twitter keepalive**: Script to prevent session expiration on headless VPS
+- **Richer videos**: 7 sentences + ~16 images per video (configurable)
+- **Non-blocking**: Song fetch failure no longer crashes the app
+- **Pillow compatibility**: Works with Pillow 9.x (Pillow 10+ removed `ANTIALIAS`)
 
-## Versions
+## Quick Start
 
-MoneyPrinter has different versions for multiple languages developed by the community for the community. Here are some known versions:
+### Prerequisites
+- Python 3.11+
+- Firefox + geckodriver (for Twitter only)
+- ImageMagick (for subtitles)
 
-- Chinese: [MoneyPrinterTurbo](https://github.com/harry0703/MoneyPrinterTurbo)
-
-If you would like to submit your own version/fork of MoneyPrinter, please open an issue describing the changes you made to the fork.
-
-## Installation
-
-> ⚠️ If you are planning to reach out to scraped businesses per E-Mail, please first install the [Go Programming Language](https://golang.org/).
+### 1. Clone & Install
 
 ```bash
-git clone https://github.com/FujiwaraChoki/MoneyPrinterV2.git
-
+git clone https://github.com/18798aa12/MoneyPrinterV2.git
 cd MoneyPrinterV2
-# Copy Example Configuration and fill out values in config.json
 cp config.example.json config.json
-
-# Create a virtual environment
 python -m venv venv
-
-# Activate the virtual environment - Windows
-.\venv\Scripts\activate
-
-# Activate the virtual environment - Unix
-source venv/bin/activate
-
-# Install the requirements
+source venv/bin/activate   # Windows: .\venv\Scripts\activate
 pip install -r requirements.txt
+pip install google-auth google-auth-oauthlib google-api-python-client
+pip install 'Pillow<10'    # Required for MoviePy compatibility
 ```
 
-## Usage
+### 2. Get Gemini API Key (Free)
+
+1. Go to [Google AI Studio](https://aistudio.google.com/apikey)
+2. Click **Create API Key**
+3. Add to `config.json`:
+
+```json
+{
+  "nanobanana2_api_key": "YOUR_KEY_HERE",
+  "gemini_api_keys": [
+    "KEY_1",
+    "KEY_2",
+    "KEY_3"
+  ]
+}
+```
+
+> **Tip**: Create multiple Google Cloud projects for more free quota. Each project gets independent limits (250 req/day for Flash).
+
+### 3. Set Up YouTube API Upload
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Enable **YouTube Data API v3**
+3. Create **OAuth client ID** → Desktop App
+4. Download the `client_secret_*.json` file
+5. Run the token script:
 
 ```bash
-# Run the application
-python src/main.py
+python get_youtube_token.py /path/to/client_secret.json
 ```
 
-## Documentation
+6. Copy the `refresh_token` to `config.json`:
 
-All relevant document can be found [here](docs/).
+```json
+{
+  "youtube_upload_method": "api",
+  "youtube_client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  "youtube_client_secret": "GOCSPX-...",
+  "youtube_refresh_token": "1//..."
+}
+```
 
-## Scripts
+### 4. Set Up Twitter (Selenium)
 
-For easier usage, there are some scripts in the `scripts` directory, that can be used to directly access the core functionality of MPV2, without the need of user interaction.
+1. Install Firefox
+2. Create a Firefox profile and log in to [x.com](https://x.com)
+3. Set the profile path in `config.json`:
 
-All scripts need to be run from the root directory of the project, e.g. `bash scripts/upload_video.sh`.
+```json
+{
+  "firefox_profile": "/path/to/firefox-profile"
+}
+```
 
-## Contributing
+### 5. Configure Modules
 
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us. Check out [docs/Roadmap.md](docs/Roadmap.md) for a list of features that need to be implemented.
+All enabled by default. Toggle in `config.json`:
 
-## Code of Conduct
+```json
+{
+  "modules_topic_engine": true,
+  "modules_script_enhancer": true,
+  "modules_seo_optimizer": true,
+  "modules_image_prompts_pro": true,
+  "modules_tweet_variety": true
+}
+```
 
-Please read [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for details on our code of conduct, and the process for submitting pull requests to us.
+### 6. Run
+
+```bash
+# Interactive mode
+python src/main.py
+
+# Headless (for cron jobs)
+python src/cron.py youtube <account_uuid>
+python src/cron.py twitter <account_uuid>
+```
+
+## VPS Deployment (Headless)
+
+For running on a VPS without GUI:
+
+```bash
+# Install dependencies
+apt install firefox-esr xvfb imagemagick
+
+# Fix ImageMagick security policy (required for subtitles)
+sed -i 's|<policy domain="path" rights="none" pattern="@\*"/>|<!-- <policy domain="path" rights="none" pattern="@*" /> -->|' /etc/ImageMagick-6/policy.xml
+
+# Start virtual display
+Xvfb :99 -screen 0 1280x720x24 &
+export DISPLAY=:99
+
+# Create Firefox profile on Linux
+firefox-esr -CreateProfile "MPV2 /path/to/firefox-profile"
+```
+
+### Cron Schedule Example
+
+```cron
+# YouTube Shorts (2/day)
+0 6 * * * /path/to/run_task.sh youtube <uuid>
+0 18 * * * /path/to/run_task.sh youtube <uuid>
+
+# Tweets (4/day)
+0 8 * * * /path/to/run_task.sh twitter <uuid>
+0 12 * * * /path/to/run_task.sh twitter <uuid>
+0 16 * * * /path/to/run_task.sh twitter <uuid>
+0 20 * * * /path/to/run_task.sh twitter <uuid>
+
+# Keep Twitter session alive
+0 */6 * * * cd /path/to/MoneyPrinterV2 && source venv/bin/activate && python keep_twitter_alive.py
+```
+
+### run_task.sh
+
+```bash
+#!/bin/bash
+cd /path/to/MoneyPrinterV2
+source venv/bin/activate
+PLATFORM=$1
+ACCOUNT_ID=$2
+LOG=logs/${PLATFORM}_$(date +%Y%m%d_%H%M%S).log
+mkdir -p logs
+python src/cron.py $PLATFORM $ACCOUNT_ID >> $LOG 2>&1
+```
+
+## Gemini Free Tier Limits
+
+| Model | RPM | Requests/Day | Best For |
+|-------|-----|-------------|----------|
+| gemini-2.5-flash | 10 | 250 | Default text generation |
+| gemini-2.5-flash-lite | 15 | 1,000 | High-volume, simpler tasks |
+| gemini-2.5-pro | 5 | 100 | Complex reasoning |
+| Image generation | — | 500/day | Video images |
+
+With 3 API keys, 2 videos + 4 tweets per day uses ~3% of quota.
+
+## Config Reference
+
+| Key | Description | Default |
+|-----|-------------|---------|
+| `ollama_model` | Model name for text generation | `gemini-2.5-flash` |
+| `gemini_api_keys` | Array of Gemini API keys for rotation | `[]` |
+| `youtube_upload_method` | `api` or `selenium` | `api` |
+| `youtube_client_id` | OAuth2 client ID | `""` |
+| `youtube_client_secret` | OAuth2 client secret | `""` |
+| `youtube_refresh_token` | OAuth2 refresh token | `""` |
+| `script_sentence_length` | Sentences per video script | `7` |
+| `modules_*` | Enable/disable enhancement modules | `true` |
+| `openai_api_key` | For GPT/Qwen/DeepSeek models | `""` |
+| `openai_base_url` | OpenAI-compatible API base URL | `https://api.openai.com/v1` |
 
 ## License
 
-MoneyPrinterV2 is licensed under `Affero General Public License v3.0`. See [LICENSE](LICENSE) for more information.
+AGPL-3.0 — Same as the original project. See [LICENSE](LICENSE).
 
-## Acknowledgments
+## Credits
 
+- Original project: [FujiwaraChoki/MoneyPrinterV2](https://github.com/FujiwaraChoki/MoneyPrinterV2)
 - [KittenTTS](https://github.com/KittenML/KittenTTS)
-- [gpt4free](https://github.com/xtekky/gpt4free)
 
 ## Disclaimer
 
-This project is for educational purposes only. The author will not be responsible for any misuse of the information provided. All the information on this website is published in good faith and for general information purpose only. The author does not make any warranties about the completeness, reliability, and accuracy of this information. Any action you take upon the information you find on this website (FujiwaraChoki/MoneyPrinterV2), is strictly at your own risk. The author will not be liable for any losses and/or damages in connection with the use of our website.
+This project is for educational purposes only. The author is not responsible for any misuse of this software.
